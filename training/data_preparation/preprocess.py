@@ -1,6 +1,7 @@
 import os
 import shutil
 from sklearn.model_selection import train_test_split
+from tensorflow.keras.preprocessing.image import ImageDataGenerator
 
 def split_data(source_dir, target_dir, test_size=0.2, val_size=0.2):
     """
@@ -33,3 +34,57 @@ def split_data(source_dir, target_dir, test_size=0.2, val_size=0.2):
         copy_images(train, 'train')
         copy_images(val, 'val')
         copy_images(test, 'test')
+
+
+def create_data_generators(train_dir, val_dir, test_dir, image_size, batch_size):
+    """
+    Create data generators for training, validation, and test datasets.
+
+    Args:
+    - train_dir (str): Path to the training dataset directory.
+    - val_dir (str): Path to the validation dataset directory.
+    - test_dir (str): Path to the test dataset directory.
+    - image_size (tuple of int): The target size of the images (width, height).
+    - batch_size (int): The size of the batches of data.
+
+    Returns:
+    - train_generator, val_generator, test_generator: Data generators for the training, validation, and test datasets.
+    """
+    
+    # Preprocessing and realtime data augmentation
+    train_datagen = ImageDataGenerator(
+        rescale=1./255,  # Rescale pixel values to [0, 1]
+        rotation_range=40,
+        width_shift_range=0.2,
+        height_shift_range=0.2,
+        shear_range=0.2,
+        zoom_range=0.2,
+        horizontal_flip=True,
+        fill_mode='nearest'
+    )
+
+    test_val_datagen = ImageDataGenerator(rescale=1./255)
+
+    train_generator = train_datagen.flow_from_directory(
+        train_dir,
+        target_size=image_size,
+        batch_size=batch_size,
+        class_mode='categorical'
+    )
+
+    val_generator = test_val_datagen.flow_from_directory(
+        val_dir,
+        target_size=image_size,
+        batch_size=batch_size,
+        class_mode='categorical'
+    )
+
+    test_generator = test_val_datagen.flow_from_directory(
+        test_dir,
+        target_size=image_size,
+        batch_size=batch_size,
+        class_mode='categorical',
+        shuffle=False 
+    )
+
+    return train_generator, val_generator, test_generator

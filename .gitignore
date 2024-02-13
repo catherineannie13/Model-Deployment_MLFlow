@@ -1,3 +1,4 @@
 /serving/venv_serving
 /training/venv_training
+/training/mlruns
 /dataset
