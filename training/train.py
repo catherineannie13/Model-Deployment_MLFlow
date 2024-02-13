@@ -1,39 +1,58 @@
-import mlflow
-import mlflow.tensorflow
-from data_preparation.preprocess import split_data, create_data_generators
-from models.densenet import DenseNetModel
 import tensorflow as tf
+import os
+from tensorflow.keras.optimizers import Adam
+from sklearn.metrics import roc_auc_score
+import numpy as np
+import mlflow
+from data_preparation.preprocess import create_data_generators
+from models.densenet import DenseNetModel
+from models.efficientnet import EfficientNetModel
+from models.resnet import ResNetModel
+from models.inceptionv3 import InceptionV3Model
+from tensorflow.keras.callbacks import ModelCheckpoint, EarlyStopping, ReduceLROnPlateau
 
-def train_model(model, model_name):
-    # Initialize MLFlow experiment
+class RocAucCallback(tf.keras.callbacks.Callback):
+    def __init__(self, train_data, val_data, num_classes):
+        super(RocAucCallback, self).__init__()
+        self.train_data = train_data
+        self.val_data = val_data
+        self.num_classes = num_classes
+
+    def calculate_roc_auc(self, model, generator, steps, num_classes):
+        y_true = np.zeros((0, num_classes))
+        y_pred = np.zeros((0, num_classes))
+        
+        for _ in range(steps):
+            x_batch, y_batch = next(generator)
+            y_true = np.vstack([y_true, y_batch])
+            y_pred = np.vstack([y_pred, model.predict(x_batch)])
+        
+        roc_auc_scores = [roc_auc_score(y_true[:, i], y_pred[:, i]) for i in range(num_classes)]
+        return np.mean(roc_auc_scores)
+
+    def on_epoch_end(self, epoch, logs=None):
+        train_roc_auc = self.calculate_roc_auc(self.model, self.train_data, len(self.train_data), self.num_classes)
+        val_roc_auc = self.calculate_roc_auc(self.model, self.val_data, len(self.val_data), self.num_classes)
+        
+        logs["train_roc_auc"] = train_roc_auc
+        logs["val_roc_auc"] = val_roc_auc
+        
+        mlflow.log_metric("train_roc_auc", train_roc_auc, step=epoch)
+        mlflow.log_metric("val_roc_auc", val_roc_auc, step=epoch)
+        
+        print(f"Epoch {epoch + 1}: train_roc_auc: {train_roc_auc}, val_roc_auc: {val_roc_auc}")
+
+def train_model(model, model_name, train_dir, val_dir, test_dir, image_size, batch_size, num_classes, learning_rate, epochs):
     mlflow.set_experiment(model_name)
-
-    with mlflow.start_run():
-        # Split dataset into training, validation, and test sets
-        # data_path = '../dataset/defungi'
-        # split_data(source_dir=data_path, target_dir=data_path)
-
-        # Define directories for train, val, and test datasets
-        train_dir = '../dataset/defungi/train'
-        val_dir = '../dataset/defungi/val'
-        test_dir = '../dataset/defungi/test'
-
-        # Model and training parameters
-        image_size = (224, 224)
-        batch_size = 32
-        num_classes = 5 
-        learning_rate = 1e-4
-        epochs = 10
-
-        # Log parameters
+    
+    with mlflow.start_run(run_name=model_name):
         mlflow.log_param("image_size", image_size)
         mlflow.log_param("batch_size", batch_size)
         mlflow.log_param("num_classes", num_classes)
         mlflow.log_param("learning_rate", learning_rate)
         mlflow.log_param("epochs", epochs)
 
-        # Create data generators
-        train_generator, val_generator, test_generator = create_data_generators(
+        train_generator, val_generator, _ = create_data_generators(
             train_dir=train_dir,
             val_dir=val_dir,
             test_dir=test_dir,
@@ -41,36 +60,58 @@ def train_model(model, model_name):
             batch_size=batch_size
         )
 
-        # Build the model
         model_ = model.build(num_layers_to_finetune=10)
 
-        # Compile the model
-        model_.compile(optimizer=tf.keras.optimizers.Adam(learning_rate=learning_rate),
-                    loss='categorical_crossentropy',
-                    metrics=['accuracy'])
+        model_.compile(optimizer=Adam(learning_rate=learning_rate),
+                       loss='categorical_crossentropy',
+                       metrics=['accuracy'])
 
-        # Log model summary
-        mlflow.tensorflow.log_model(model_, "model")
+        roc_auc_callback = RocAucCallback(train_generator, val_generator, num_classes)
+        
+        # ModelCheckpoint callback to save the model
+        checkpoint_dir = 'models/checkpoints/' + model_name
+        checkpoint_filepath = os.path.join(checkpoint_dir, 'model_checkpoint.h5')
+        model_checkpoint_callback = ModelCheckpoint(
+            filepath=checkpoint_filepath,
+            save_weights_only=False,
+            monitor='val_accuracy',
+            mode='max',
+            save_best_only=True
+        )
+        
+        # Early Stopping callback
+        early_stopping_callback = EarlyStopping(
+            monitor='val_loss',
+            patience=3,  # Adjust patience as needed
+            restore_best_weights=True
+        )
+        
+        # Reduce learning rate on plateau
+        reduce_lr_callback = ReduceLROnPlateau(
+            monitor='val_loss',
+            factor=0.1,
+            patience=2,
+            min_lr=1e-6
+        )
 
-        # Train the model
-        history = model_.fit(train_generator,
-                            epochs=epochs,
-                            validation_data=val_generator)
+        model_.fit(train_generator,
+                   epochs=epochs,
+                   validation_data=val_generator,
+                   callbacks=[roc_auc_callback, model_checkpoint_callback, early_stopping_callback, reduce_lr_callback])
 
-        # Log metrics
-        mlflow.log_metric("train_accuracy", history.history['accuracy'][-1])
-        mlflow.log_metric("val_accuracy", history.history['val_accuracy'][-1])
-
-        # Save MLFlow run
+        best_model = tf.keras.models.load_model(checkpoint_filepath)
+        mlflow.tensorflow.log_model(tf.keras.models.clone_model(model_), "model")
         mlflow.end_run()
 
-
 if __name__ == "__main__":
-    # Define input shape and number of classes
-    input_shape = (224, 224, 3)
+    train_dir = '../dataset/defungi/train'
+    val_dir = '../dataset/defungi/val'
+    test_dir = '../dataset/defungi/test'
+    image_size = (224, 224)
+    batch_size = 32
     num_classes = 5
-
-    # Train the model
-    model = DenseNetModel(input_shape=input_shape, num_classes=num_classes)
-    model_name = "DenseNet"
-    train_model(model, model_name)
+    learning_rate = 1e-4
+    epochs = 10
+    model = EfficientNetModel(input_shape=(224, 224, 3), num_classes=num_classes)
+    model_name = "EfficientNet_ROC_AUC"
+    train_model(model, model_name, train_dir, val_dir, test_dir, image_size, batch_size, num_classes, learning_rate, epochs)
