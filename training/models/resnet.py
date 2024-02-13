@@ -1,0 +1,17 @@
+from basemodel import BaseModel
+from tensorflow.keras.applications import ResNet50
+from tensorflow.keras.layers import Input, GlobalAveragePooling2D, Dense
+from tensorflow.keras.models import Model
+
+class ResNetModel(BaseModel):
+    def build(self, num_layers_to_finetune=10):
+        base_model = ResNet50(weights='imagenet', include_top=False, input_shape=self.input_shape)
+        self.unfreeze_top_layers(base_model, num_layers_to_finetune)
+
+        inputs = Input(shape=self.input_shape)
+        x = base_model(inputs, training=True)  # Use training=True to also run BatchNormalization layers
+        x = GlobalAveragePooling2D()(x)
+        outputs = Dense(self.num_classes, activation='softmax')(x)
+
+        model = Model(inputs, outputs)
+        return model
