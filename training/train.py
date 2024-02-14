@@ -99,6 +99,12 @@ def train_model(model, model_name, train_dir, val_dir, test_dir, image_size, bat
                    validation_data=val_generator,
                    callbacks=[roc_auc_callback, model_checkpoint_callback, early_stopping_callback, reduce_lr_callback])
 
+        # Save the model
+        model_save_path = '../serving/models/' + model_name + '_saved'
+        os.makedirs(model_save_path, exist_ok=True)
+        saved_model_path = os.path.join(model_save_path, 'saved_model')
+        tf.keras.models.save_model(best_model, saved_model_path)
+
         best_model = tf.keras.models.load_model(checkpoint_filepath)
         mlflow.tensorflow.log_model(tf.keras.models.clone_model(model_), "model")
         mlflow.end_run()
@@ -112,6 +118,6 @@ if __name__ == "__main__":
     num_classes = 5
     learning_rate = 1e-4
     epochs = 10
-    model = EfficientNetModel(input_shape=(224, 224, 3), num_classes=num_classes)
-    model_name = "EfficientNet_ROC_AUC"
+    model = DenseNetModel(input_shape=(224, 224, 3), num_classes=num_classes)
+    model_name = "DenseNet_ROC_AUC_ES_RLRP"
     train_model(model, model_name, train_dir, val_dir, test_dir, image_size, batch_size, num_classes, learning_rate, epochs)
