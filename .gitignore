@@ -1,5 +1,6 @@
 /serving/venv_serving
 /serving/models
+/serving/app/uploads
 /training/venv_training
 /training/mlruns
 /training/models/checkpoints

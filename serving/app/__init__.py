@@ -8,14 +8,16 @@ import numpy as np
 app = Flask(__name__)
 
 # Assuming your models are in a folder named 'models'
-MODEL_FOLDER = '../models'
+MODEL_FOLDER = '..\models'
 ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg'}
 
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
 def load_model(model_name):
-    model_path = os.path.join(MODEL_FOLDER, model_name)
+    full_model_name = model_name + '_ROC_AUC_ES_RLRP_saved'
+    base_dir = 'C:/Users/cathe/model_deployment_DL/serving/models'
+    model_path = os.path.join(base_dir, full_model_name)
     model = tf.keras.models.load_model(model_path)
     return model
 
@@ -56,11 +58,16 @@ def upload_file():
             return redirect(request.url)
         if file and allowed_file(file.filename):
             filename = secure_filename(file.filename)
-            image_path = os.path.join('uploads', filename)
+            
+            # Ensure the uploads directory exists
+            uploads_dir = os.path.join(app.root_path, 'uploads')
+            os.makedirs(uploads_dir, exist_ok=True)  # This will create the directory if it does not exist
+            
+            image_path = os.path.join(uploads_dir, filename)
             file.save(image_path)
             
             # Load the selected model
-            model = load_model(model_choice + '.h5')
+            model = load_model(model_choice)
             
             # Preprocess and classify the image
             # Implement preprocessing to fit your model's input requirements
@@ -73,7 +80,8 @@ def upload_file():
                        2: 'Groups or mosaics of arthroconidia (GMA)', 
                        3: 'Septate hyaline hyphae with chlamydioconidia (SHC)', 
                        4: 'Broad brown hyphae (BBH)'}
-            fungus = mapping[prediction]
+            predicted_class_id = np.argmax(prediction, axis=1)[0]  
+            fungus = mapping[predicted_class_id]
             
             return render_template('result.html', result=fungus)
     
