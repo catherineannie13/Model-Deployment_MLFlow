@@ -65,6 +65,9 @@ def train_model(model, model_name, train_dir, val_dir, test_dir, image_size, bat
         model_.compile(optimizer=Adam(learning_rate=learning_rate),
                        loss='categorical_crossentropy',
                        metrics=['accuracy'])
+        model_.compile(optimizer=Adam(learning_rate=learning_rate),
+                       loss='categorical_crossentropy',
+                       metrics=['accuracy'])
 
         roc_auc_callback = RocAucCallback(train_generator, val_generator, num_classes)
         
@@ -123,8 +126,12 @@ def train_model(model, model_name, train_dir, val_dir, test_dir, image_size, bat
         # End the MLflow run
         mlflow.end_run()
 
-
 if __name__ == "__main__":
+    train_dir = '../dataset/defungi/train'
+    val_dir = '../dataset/defungi/val'
+    test_dir = '../dataset/defungi/test'
+    image_size = (224, 224)
+    batch_size = 32
     train_dir = '../dataset/defungi/train'
     val_dir = '../dataset/defungi/val'
     test_dir = '../dataset/defungi/test'
