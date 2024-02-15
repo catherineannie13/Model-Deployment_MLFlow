@@ -2,15 +2,17 @@
 <html>
 <head>
     <title>Upload Image for Classification</title>
+    <link rel="stylesheet" href="../static/upload.css">
 </head>
 <body>
     <h1>Upload Image</h1>
     <form action="/" method="post" enctype="multipart/form-data">
         <input type="file" name="file">
         <select name="model_selection">
-            <option value="model1">Model 1</option>
-            <option value="model2">Model 2</option>
-            <!-- Add more models as needed -->
+            <option value="denseNet">Dense Net</option>
+            <option value="efficientNet">Efficient Net</option>
+            <option value="inceptionV3">Inception V3</option>
+            <option value="resNet">Res Net</option>
         </select>
         <input type="submit" value="Upload">
     </form>

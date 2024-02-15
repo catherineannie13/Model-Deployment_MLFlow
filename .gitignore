@@ -1,4 +1,6 @@
 /serving/venv_serving
+/serving/models
 /training/venv_training
 /training/mlruns
+/training/models/checkpoints
 /dataset

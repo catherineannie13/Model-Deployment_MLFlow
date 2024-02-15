@@ -67,10 +67,15 @@ def upload_file():
             processed_image = preprocess_image(image_path, model.input_shape[1:3])
             prediction = model.predict(processed_image)
             
-            # Map prediction to class names, if necessary
-            # result = map_prediction_to_class(prediction)
+            # Map prediction to fungus name
+            mapping = {0: 'Tortuous septate hyaline hyphae (TSH)', 
+                       1: 'Beaded arthroconidial septate hyaline hyphae (BASH)', 
+                       2: 'Groups or mosaics of arthroconidia (GMA)', 
+                       3: 'Septate hyaline hyphae with chlamydioconidia (SHC)', 
+                       4: 'Broad brown hyphae (BBH)'}
+            fungus = mapping[prediction]
             
-            return render_template('result.html', result=prediction)
+            return render_template('result.html', result=fungus)
     
     return render_template('upload.html')
 

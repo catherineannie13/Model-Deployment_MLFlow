@@ -1,0 +1,68 @@
+/* Reset some basic elements for consistent styling across browsers */
+body, h1, form, input, select {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+/* Styling the body for a light background and setting a nice font */
+body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background-color: #f4f4f4;
+    padding: 20px;
+    line-height: 1.6;
+    color: #333;
+}
+
+/* Centering the form on the page with some spacing */
+form {
+    max-width: 600px;
+    margin: 40px auto;
+    padding: 20px;
+    background-color: #fff;
+    border-radius: 8px;
+    box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+}
+
+/* Styling the form elements for a consistent and modern look */
+input[type="file"], select {
+    width: 100%;
+    padding: 10px;
+    margin-bottom: 20px;
+    border-radius: 5px;
+    border: 1px solid #ddd;
+    line-height: 1.5;
+}
+
+input[type="submit"] {
+    display: block;
+    width: 100%;
+    padding: 10px;
+    border: none;
+    background-color: #007bff;
+    color: white;
+    cursor: pointer;
+    border-radius: 5px;
+    font-size: 16px;
+}
+
+input[type="submit"]:hover {
+    background-color: #0056b3;
+}
+
+/* Styling the header for emphasis */
+h1 {
+    text-align: center;
+    color: #333;
+    margin-bottom: 20px;
+}
+
+/* Enhance the dropdown with custom arrow */
+select {
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    appearance: none;
+    background: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><path d="M7 10l5 5 5-5z"/></svg>') no-repeat right 10px center/16px 16px, linear-gradient(to bottom, #ffffff 0%,#f9f9f9 100%);
+}
+
+/* Add a little padding inside the

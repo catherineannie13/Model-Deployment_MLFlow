@@ -100,14 +100,29 @@ def train_model(model, model_name, train_dir, val_dir, test_dir, image_size, bat
                    callbacks=[roc_auc_callback, model_checkpoint_callback, early_stopping_callback, reduce_lr_callback])
 
         # Save the model
-        model_save_path = '../serving/models/' + model_name + '_saved'
-        os.makedirs(model_save_path, exist_ok=True)
-        saved_model_path = os.path.join(model_save_path, 'saved_model')
-        tf.keras.models.save_model(best_model, saved_model_path)
+        # Assuming you have already defined `checkpoint_filepath`, `model_name`, and other variables
 
+        # Load the best model from checkpoint
         best_model = tf.keras.models.load_model(checkpoint_filepath)
-        mlflow.tensorflow.log_model(tf.keras.models.clone_model(model_), "model")
+
+        # Define the directory path where the model will be saved
+        model_save_path = '../serving/models/' + model_name + '_saved'
+        os.makedirs(model_save_path, exist_ok=True)  # Ensure the directory exists
+
+        # Save the best model using the Keras native format (TF SavedModel format by default)
+        # Note: No need to specify 'saved_model' subdirectory, TensorFlow handles it
+        tf.keras.models.save_model(best_model, model_save_path)
+
+        # For MLflow, if you are logging the model structure without weights and want a fresh clone
+        # Consider directly logging the best model instead if applicable
+        # Clone the model structure (this does not clone weights)
+        model_clone = tf.keras.models.clone_model(best_model)
+
+        # Log the cloned model structure with MLflow (consider logging `best_model` directly if applicable)
+        mlflow.tensorflow.log_model(model_clone, "model_structure")
+        # End the MLflow run
         mlflow.end_run()
+
 
 if __name__ == "__main__":
     train_dir = '../dataset/defungi/train'
@@ -118,6 +133,6 @@ if __name__ == "__main__":
     num_classes = 5
     learning_rate = 1e-4
     epochs = 10
-    model = DenseNetModel(input_shape=(224, 224, 3), num_classes=num_classes)
-    model_name = "DenseNet_ROC_AUC_ES_RLRP"
+    model = InceptionV3Model(input_shape=(224, 224, 3), num_classes=num_classes)
+    model_name = "InceptionV3_ROC_AUC_ES_RLRP"
     train_model(model, model_name, train_dir, val_dir, test_dir, image_size, batch_size, num_classes, learning_rate, epochs)
