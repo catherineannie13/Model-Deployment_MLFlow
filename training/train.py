@@ -1,7 +1,8 @@
 import tensorflow as tf
 import os
 from tensorflow.keras.optimizers import Adam
-from sklearn.metrics import roc_auc_score
+from tensorflow.keras.callbacks import ModelCheckpoint, EarlyStopping, ReduceLROnPlateau
+from sklearn.metrics import roc_auc_score, f1_score, precision_score, recall_score
 import numpy as np
 import mlflow
 from data_preparation.preprocess import create_data_generators
@@ -9,7 +10,6 @@ from models.densenet import DenseNetModel
 from models.efficientnet import EfficientNetModel
 from models.resnet import ResNetModel
 from models.inceptionv3 import InceptionV3Model
-from tensorflow.keras.callbacks import ModelCheckpoint, EarlyStopping, ReduceLROnPlateau
 
 class RocAucCallback(tf.keras.callbacks.Callback):
     def __init__(self, train_data, val_data, num_classes):
@@ -18,7 +18,7 @@ class RocAucCallback(tf.keras.callbacks.Callback):
         self.val_data = val_data
         self.num_classes = num_classes
 
-    def calculate_roc_auc(self, model, generator, steps, num_classes):
+    def calculate_metrics(self, model, generator, steps, num_classes):
         y_true = np.zeros((0, num_classes))
         y_pred = np.zeros((0, num_classes))
         
@@ -28,19 +28,38 @@ class RocAucCallback(tf.keras.callbacks.Callback):
             y_pred = np.vstack([y_pred, model.predict(x_batch)])
         
         roc_auc_scores = [roc_auc_score(y_true[:, i], y_pred[:, i]) for i in range(num_classes)]
-        return np.mean(roc_auc_scores)
+        roc_auc = np.mean(roc_auc_scores)
+        
+        # Convert probabilities to binary predictions
+        y_pred_binary = np.argmax(y_pred, axis=1)
+        y_true_binary = np.argmax(y_true, axis=1)
+        
+        f1 = f1_score(y_true_binary, y_pred_binary, average='macro')
+        precision = precision_score(y_true_binary, y_pred_binary, average='macro')
+        recall = recall_score(y_true_binary, y_pred_binary, average='macro')
+        
+        return roc_auc, f1, precision, recall
 
     def on_epoch_end(self, epoch, logs=None):
-        train_roc_auc = self.calculate_roc_auc(self.model, self.train_data, len(self.train_data), self.num_classes)
-        val_roc_auc = self.calculate_roc_auc(self.model, self.val_data, len(self.val_data), self.num_classes)
+        train_roc_auc, train_f1, train_precision, train_recall = self.calculate_metrics(self.model, self.train_data, len(self.train_data), self.num_classes)
+        val_roc_auc, val_f1, val_precision, val_recall = self.calculate_metrics(self.model, self.val_data, len(self.val_data), self.num_classes)
         
-        logs["train_roc_auc"] = train_roc_auc
-        logs["val_roc_auc"] = val_roc_auc
+        metrics = {
+            "train_roc_auc": train_roc_auc,
+            "val_roc_auc": val_roc_auc,
+            "train_f1": train_f1,
+            "val_f1": val_f1,
+            "train_precision": train_precision,
+            "val_precision": val_precision,
+            "train_recall": train_recall,
+            "val_recall": val_recall
+        }
         
-        mlflow.log_metric("train_roc_auc", train_roc_auc, step=epoch)
-        mlflow.log_metric("val_roc_auc", val_roc_auc, step=epoch)
+        for name, value in metrics.items():
+            mlflow.log_metric(name, value, step=epoch)
         
-        print(f"Epoch {epoch + 1}: train_roc_auc: {train_roc_auc}, val_roc_auc: {val_roc_auc}")
+        print(f"Epoch {epoch + 1}: {metrics}")
+
 
 def train_model(model, model_name, train_dir, val_dir, test_dir, image_size, batch_size, num_classes, learning_rate, epochs):
     mlflow.set_experiment(model_name)
@@ -140,6 +159,6 @@ if __name__ == "__main__":
     num_classes = 5
     learning_rate = 1e-4
     epochs = 10
-    model = InceptionV3Model(input_shape=(224, 224, 3), num_classes=num_classes)
-    model_name = "InceptionV3_ROC_AUC_ES_RLRP"
+    model = DenseNetModel(input_shape=(224, 224, 3), num_classes=num_classes)
+    model_name = "DenseNet_ROC_AUC_ES_RLRP"
     train_model(model, model_name, train_dir, val_dir, test_dir, image_size, batch_size, num_classes, learning_rate, epochs)
