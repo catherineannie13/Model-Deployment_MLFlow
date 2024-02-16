@@ -7,8 +7,6 @@ import numpy as np
 
 app = Flask(__name__)
 
-# Assuming your models are in a folder named 'models'
-MODEL_FOLDER = '..\models'
 ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg'}
 
 def allowed_file(filename):
@@ -22,28 +20,10 @@ def load_model(model_name):
     return model
 
 def preprocess_image(image_path, target_size):
-    """
-    Preprocess the image: resize and scale pixel values.
-
-    Args:
-    - image_path (str): Path to the image to preprocess.
-    - target_size (tuple): The target image size (width, height).
-
-    Returns:
-    - img_array: Preprocessed image array.
-    """
-    # Load the image
     img = image.load_img(image_path, target_size=target_size)
-    
-    # Convert the image to a numpy array
     img_array = image.img_to_array(img)
-    
-    # Scale pixel values to [0, 1]
     img_array /= 255.0
-
-    # Expand dimensions to match the model's input format (add batch dimension)
     img_array = np.expand_dims(img_array, axis=0)
-    
     return img_array
 
 
@@ -61,7 +41,7 @@ def upload_file():
             
             # Ensure the uploads directory exists
             uploads_dir = os.path.join(app.root_path, 'uploads')
-            os.makedirs(uploads_dir, exist_ok=True)  # This will create the directory if it does not exist
+            os.makedirs(uploads_dir, exist_ok=True) 
             
             image_path = os.path.join(uploads_dir, filename)
             file.save(image_path)
