@@ -13,12 +13,35 @@ from models.inceptionv3 import InceptionV3Model
 
 class RocAucCallback(tf.keras.callbacks.Callback):
     def __init__(self, train_data, val_data, num_classes):
+        """
+        Initializes a RocAucCallback object.
+
+        Parameters:
+        - train_data (tf.data.Dataset): Training data.
+        - val_data (tf.data.Dataset): Validation data.
+        - num_classes (int): Number of classes.
+
+        Returns:
+        - None
+        """
         super(RocAucCallback, self).__init__()
         self.train_data = train_data
         self.val_data = val_data
         self.num_classes = num_classes
 
     def calculate_metrics(self, model, generator, steps, num_classes):
+        """
+        Calculate ROC AUC, F1, precision, and recall metrics.
+
+        Parameters:
+        - model (tf.keras.Model): Model to evaluate.
+        - generator (tf.data.Dataset): Data generator.
+        - steps (int): Number of steps per epoch.
+        - num_classes (int): Number of classes.
+
+        Returns:
+        - tuple: Tuple containing the calculated metrics (ROC AUC, F1, precision, recall).
+        """
         y_true = np.zeros((0, num_classes))
         y_pred = np.zeros((0, num_classes))
         
@@ -41,6 +64,16 @@ class RocAucCallback(tf.keras.callbacks.Callback):
         return roc_auc, f1, precision, recall
 
     def on_epoch_end(self, epoch, logs=None):
+        """
+        Callback function called at the end of each epoch.
+
+        Parameters:
+        - epoch (int): Current epoch number.
+        - logs (dict): Dictionary containing the training metrics.
+
+        Returns:
+        - None
+        """
         train_roc_auc, train_f1, train_precision, train_recall = self.calculate_metrics(self.model, self.train_data, len(self.train_data), self.num_classes)
         val_roc_auc, val_f1, val_precision, val_recall = self.calculate_metrics(self.model, self.val_data, len(self.val_data), self.num_classes)
         
@@ -62,6 +95,24 @@ class RocAucCallback(tf.keras.callbacks.Callback):
 
 
 def train_model(model, model_name, train_dir, val_dir, test_dir, image_size, batch_size, num_classes, learning_rate, epochs):
+    """
+    Train the model.
+
+    Parameters:
+    - model (tf.keras.Model): Model to train.
+    - model_name (str): Name of the model.
+    - train_dir (str): Directory path of the training data.
+    - val_dir (str): Directory path of the validation data.
+    - test_dir (str): Directory path of the test data.
+    - image_size (tuple): Size of the input images.
+    - batch_size (int): Batch size.
+    - num_classes (int): Number of classes.
+    - learning_rate (float): Learning rate.
+    - epochs (int): Number of epochs.
+
+    Returns:
+    - None
+    """
     mlflow.set_experiment(model_name)
     
     with mlflow.start_run(run_name=model_name):
@@ -104,7 +155,7 @@ def train_model(model, model_name, train_dir, val_dir, test_dir, image_size, bat
         # Early Stopping callback
         early_stopping_callback = EarlyStopping(
             monitor='val_loss',
-            patience=3,  # Adjust patience as needed
+            patience=3,
             restore_best_weights=True
         )
         
@@ -121,28 +172,19 @@ def train_model(model, model_name, train_dir, val_dir, test_dir, image_size, bat
                    validation_data=val_generator,
                    callbacks=[roc_auc_callback, model_checkpoint_callback, early_stopping_callback, reduce_lr_callback])
 
-        # Save the model
-        # Assuming you have already defined `checkpoint_filepath`, `model_name`, and other variables
-
         # Load the best model from checkpoint
         best_model = tf.keras.models.load_model(checkpoint_filepath)
-
-        # Define the directory path where the model will be saved
         model_save_path = '../serving/models/' + model_name + '_saved'
-        os.makedirs(model_save_path, exist_ok=True)  # Ensure the directory exists
+        os.makedirs(model_save_path, exist_ok=True)
 
         # Save the best model using the Keras native format (TF SavedModel format by default)
-        # Note: No need to specify 'saved_model' subdirectory, TensorFlow handles it
         tf.keras.models.save_model(best_model, model_save_path)
 
-        # For MLflow, if you are logging the model structure without weights and want a fresh clone
-        # Consider directly logging the best model instead if applicable
-        # Clone the model structure (this does not clone weights)
+        # Clone the model structure
         model_clone = tf.keras.models.clone_model(best_model)
 
-        # Log the cloned model structure with MLflow (consider logging `best_model` directly if applicable)
+        # Log the cloned model structure with MLflow
         mlflow.tensorflow.log_model(model_clone, "model_structure")
-        # End the MLflow run
         mlflow.end_run()
 
 if __name__ == "__main__":

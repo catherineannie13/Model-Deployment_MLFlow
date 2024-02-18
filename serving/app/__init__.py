@@ -13,6 +13,15 @@ def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
 def load_model(model_name):
+    """
+    Loads a pre-trained model.
+
+    Parameters:
+    - model_name (str): The name of the model to load.
+
+    Returns:
+    - model (tf.keras.Model): The loaded model.
+    """
     full_model_name = model_name + '_ROC_AUC_ES_RLRP_saved'
     base_dir = 'C:/Users/cathe/model_deployment_DL/serving/models'
     model_path = os.path.join(base_dir, full_model_name)
@@ -20,6 +29,16 @@ def load_model(model_name):
     return model
 
 def preprocess_image(image_path, target_size):
+    """
+    Preprocesses an image for model input.
+
+    Parameters:
+    - image_path (str): The path to the image file.
+    - target_size (tuple): The desired size of the image after resizing.
+
+    Returns:
+    - img_array (numpy.ndarray): The preprocessed image as a numpy array.
+    """
     img = image.load_img(image_path, target_size=target_size)
     img_array = image.img_to_array(img)
     img_array /= 255.0
@@ -29,6 +48,13 @@ def preprocess_image(image_path, target_size):
 
 @app.route('/', methods=['GET', 'POST'])
 def upload_file():
+    """
+    Handles the file upload and classification.
+
+    Returns:
+    - If the request method is POST and the file is successfully uploaded and classified, it returns the rendered template with the predicted fungus name.
+    - If the request method is GET or the file upload fails, it returns the rendered upload template.
+    """
     if request.method == 'POST':
         if 'file' not in request.files:
             return redirect(request.url)
